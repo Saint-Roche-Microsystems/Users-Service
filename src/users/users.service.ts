@@ -4,10 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, isValidObjectId } from 'mongoose';
+import { Model, Types, isValidObjectId } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { Role, User, UserDocument } from './schemas/user.schema';
 import { AuthClient } from './auth.client';
+import { CreateInternalUserDto } from './dto/create-internal-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import {
   PaginatedUsersDto,
@@ -44,6 +45,31 @@ export class UsersService {
       if (this.isDuplicateKey(err)) {
         throw new ConflictException(
           'El correo o el nombre de usuario ya existe.',
+        );
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Alta de perfil propagada desde auth-service tras un registro (`POST /internal/users`).
+   *
+   * Conserva el `user_id` que auth-service ya asignó a la credencial: ambos servicios
+   * comparten el mismo id, es el enlace entre el perfil y la credencial.
+   */
+  async createWithId(dto: CreateInternalUserDto): Promise<UserResponseDto> {
+    try {
+      const doc = await this.userModel.create({
+        _id: new Types.ObjectId(dto.user_id),
+        username: dto.username,
+        email: dto.email,
+        role: dto.role,
+      });
+      return UserResponseDto.fromDocument(doc);
+    } catch (err: unknown) {
+      if (this.isDuplicateKey(err)) {
+        throw new ConflictException(
+          'El correo, el nombre de usuario o el id ya existe.',
         );
       }
       throw err;

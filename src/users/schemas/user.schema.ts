@@ -20,7 +20,10 @@ export class User {
   @Prop({ required: true, unique: true })
   email: string;
 
-  @Prop({ required: true })
+  // Vacío en perfiles dados de alta desde auth-service (POST /internal/users): la
+  // credencial (hash de contraseña) es responsabilidad exclusiva de auth-service desde
+  // la separación de dominios; este campo sólo se sigue rellenando para POST /users.
+  @Prop({ default: '' })
   hashed_password: string;
 
   @Prop({ required: true, enum: Role, default: Role.USER })
