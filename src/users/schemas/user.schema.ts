@@ -43,6 +43,11 @@ export class User {
 
   @Prop({ type: Date, default: null })
   locked_until: Date | null;
+
+  // Reflejo local del evento `user.locked` de auth-service (stream `security-events`):
+  // permite reaccionar en el perfil sin depender de una consulta síncrona a auth-service.
+  @Prop({ default: false })
+  security_locked: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

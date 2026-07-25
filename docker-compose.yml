@@ -1,0 +1,24 @@
+# Compose de desarrollo del users-service: solo levanta su Mongo propio para poder
+# trabajar el servicio con `npm run start:dev` sin depender del resto del sistema.
+#
+# Redis no se declara aquí: users-service no tiene stream propio y, cuando lo consuma,
+# lo hará contra el Redis global compartido (docker-compose.yml de la raíz del repo),
+# no contra una instancia local.
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      # Puerto alto en el host para no chocar con el Mongo del monolito (27017), el de
+      # auth-service (27019) ni el de bets-service (27020).
+      - "27021:27017"
+    volumes:
+      - users_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  users_mongo_data:

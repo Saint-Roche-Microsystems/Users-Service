@@ -118,6 +118,21 @@ export class UsersService {
   }
 
   /**
+   * Aplica el efecto del evento `user.locked` del stream `security-events` sobre el
+   * perfil. Devuelve `false` (sin lanzar) si el `user_id` no existe todavía aquí, para
+   * que el consumer decida si confirma el mensaje o lo deja pendiente.
+   */
+  async markSecurityLocked(userId: string, locked: boolean): Promise<boolean> {
+    if (!isValidObjectId(userId)) {
+      return false;
+    }
+    const res = await this.userModel
+      .updateOne({ _id: userId }, { security_locked: locked })
+      .exec();
+    return res.matchedCount > 0;
+  }
+
+  /**
    * Contrato de validación consumido por otros servicios (vía TCP). Devuelve el
    * estado del usuario sin exponer HTTP público. Un usuario inexistente se trata
    * como no activo, para que el llamador (Bets) no dependa de errores.
