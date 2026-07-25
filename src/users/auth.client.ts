@@ -23,12 +23,13 @@ export class AuthClient {
     return process.env.INTERNAL_API_KEY ?? '';
   }
 
-  async getLockStatus(userId: string): Promise<LockStatus> {
+  async getLockStatus(userId: string, requestId?: string): Promise<LockStatus> {
     const url = `${this.baseUrl}/internal/lock-status/${encodeURIComponent(userId)}`;
     try {
-      const res = await fetch(url, {
-        headers: { 'X-Internal-Key': this.internalKey },
-      });
+      const headers: Record<string, string> = { 'X-Internal-Key': this.internalKey };
+      // Propaga el X-Request-Id de la request original.
+      if (requestId) headers['X-Request-Id'] = requestId;
+      const res = await fetch(url, { headers });
       if (!res.ok) {
         // Sin credencial (404) o error: la cuenta no se considera bloqueada.
         this.logger.warn(

@@ -137,7 +137,7 @@ export class UsersService {
    * estado del usuario sin exponer HTTP público. Un usuario inexistente se trata
    * como no activo, para que el llamador (Bets) no dependa de errores.
    */
-  async validate(userId: string): Promise<ValidateResult> {
+  async validate(userId: string, requestId?: string): Promise<ValidateResult> {
     if (!isValidObjectId(userId)) {
       return { active: false, tier: null, locked: false, locked_until: null };
     }
@@ -146,8 +146,9 @@ export class UsersService {
       return { active: false, tier: null, locked: false, locked_until: null };
     }
     // Hop B->C: enriquecer con el estado de bloqueo de auth-service, sin que el
-    // llamador (Bets) conozca la existencia de auth-service.
-    const lock = await this.authClient.getLockStatus(userId);
+    // llamador (Bets) conozca la existencia de auth-service. Se reenvía el
+    // X-Request-Id recibido por TCP para que la cadena de logs siga siendo trazable.
+    const lock = await this.authClient.getLockStatus(userId, requestId);
     return {
       active: doc.active,
       tier: doc.tier,
