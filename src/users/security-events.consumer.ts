@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import type Redis from 'ioredis';
 import * as os from 'os';
+import * as Sentry from '@sentry/node';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { UsersService } from './users.service';
 
@@ -11,6 +12,7 @@ interface SecurityEvent {
   event_type: string;
   user_id: string;
   timestamp: string;
+  request_id?: string;
 }
 
 /**
@@ -122,6 +124,18 @@ export class SecurityEventsConsumer implements OnModuleInit, OnApplicationShutdo
     } catch (err) {
       // No se confirma: la entrada queda en el PEL y se reintenta en el próximo
       // arranque (drainPending) o en un XAUTOCLAIM externo si el consumer no vuelve.
+      Sentry.withScope((scope) => {
+        scope.setTag('service', 'users-service');
+        scope.setTag('transport', 'redis');
+        scope.setTag('failure_mode', 'fail-open');
+        if (event.request_id) scope.setTag('request_id', event.request_id);
+        scope.setContext('security_event', {
+          user_id: event.user_id,
+          event_type: event.event_type,
+          stream_entry_id: id,
+        });
+        Sentry.captureException(err);
+      });
       this.logger.error(
         `No se pudo aplicar el evento ${id} (${event.event_type} de ${event.user_id}); ` +
           'queda pendiente para reintentar',
@@ -156,6 +170,7 @@ export class SecurityEventsConsumer implements OnModuleInit, OnApplicationShutdo
       event_type: map.event_type,
       user_id: map.user_id,
       timestamp: map.timestamp,
+      request_id: map.request_id,
     };
   }
 
