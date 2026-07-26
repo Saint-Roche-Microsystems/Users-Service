@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 
 /** Estado de bloqueo devuelto por auth-service (`/internal/lock-status/:id`). */
 export interface LockStatus {
@@ -35,6 +36,17 @@ export class AuthClient {
         this.logger.warn(
           `lock-status ${res.status} para ${userId}; se asume no bloqueada`,
         );
+        Sentry.withScope((scope) => {
+          scope.setTag('service', 'users-service');
+          scope.setTag('transport', 'http');
+          scope.setTag('failure_mode', 'fail-open');
+          if (requestId) scope.setTag('request_id', requestId);
+          scope.setContext('lock_status_check', { user_id: userId, http_status: res.status });
+          Sentry.captureMessage(
+            `lock-status ${res.status} de auth-service; se asume no bloqueada`,
+            'warning',
+          );
+        });
         return { locked: false, locked_until: null };
       }
       const data = (await res.json()) as {
@@ -49,6 +61,14 @@ export class AuthClient {
       this.logger.warn(
         `auth-service inalcanzable para ${userId}: ${String(err)}; se asume no bloqueada`,
       );
+      Sentry.withScope((scope) => {
+        scope.setTag('service', 'users-service');
+        scope.setTag('transport', 'http');
+        scope.setTag('failure_mode', 'fail-open');
+        if (requestId) scope.setTag('request_id', requestId);
+        scope.setContext('lock_status_check', { user_id: userId });
+        Sentry.captureException(err);
+      });
       return { locked: false, locked_until: null };
     }
   }
