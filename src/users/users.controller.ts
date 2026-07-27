@@ -3,11 +3,13 @@ import {
   Controller,
   DefaultValuePipe,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -38,6 +40,19 @@ export class UsersController {
     pageSize: number,
   ): Promise<PaginatedUsersDto> {
     return this.usersService.list(page, pageSize);
+  }
+
+  // Antes de `:id`: el gateway resuelve la identidad del JWT en X-User-Id, así que "me"
+  // no debe matchear como si fuera un id de Mongo (NestJS resuelve rutas en orden de
+  // declaración dentro del mismo prefijo).
+  @Get('me')
+  getSelf(
+    @Headers('x-user-id') userId: string | undefined,
+  ): Promise<UserResponseDto> {
+    if (!userId) {
+      throw new UnauthorizedException('Falta la cabecera X-User-Id.');
+    }
+    return this.usersService.getById(userId);
   }
 
   @Get(':id')
