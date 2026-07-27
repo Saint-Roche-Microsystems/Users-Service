@@ -23,6 +23,22 @@ export interface ValidateResult {
   locked_until: string | null;
 }
 
+/**
+ * Resultado del contrato `users.profile`: los datos de identidad del usuario que
+ * otros servicios necesitan mostrar pero de los que no son dueños (progression-service
+ * los pinta en estadísticas y ranking). Deliberadamente **no** incluye email ni
+ * credenciales: es un perfil de lectura para servicio a servicio, no el `UserResponseDto`
+ * del HTTP público.
+ */
+export interface UserProfileResult {
+  id: string;
+  username: string;
+  tier: string;
+  role: Role;
+  active: boolean;
+  created_at: string;
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -154,6 +170,31 @@ export class UsersService {
       tier: doc.tier,
       locked: lock.locked,
       locked_until: lock.locked_until,
+    };
+  }
+
+  /**
+   * Contrato `users.profile` (TCP): perfil de identidad de un usuario para otros
+   * servicios. Devuelve `null` cuando el usuario no existe, para que el adaptador de
+   * transporte decida cómo señalarlo (aquí `NOT_FOUND`); a diferencia de `validate`,
+   * la ausencia **no** se puede disfrazar de "usuario inactivo": quien pregunta por un
+   * perfil necesita distinguir "no existe" de "existe y está desactivado".
+   */
+  async getProfile(userId: string): Promise<UserProfileResult | null> {
+    if (!isValidObjectId(userId)) {
+      return null;
+    }
+    const doc = await this.userModel.findById(userId).exec();
+    if (!doc) {
+      return null;
+    }
+    return {
+      id: doc._id.toString(),
+      username: doc.username,
+      tier: doc.tier,
+      role: doc.role,
+      active: doc.active,
+      created_at: doc.created_at.toISOString(),
     };
   }
 
